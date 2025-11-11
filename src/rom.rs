@@ -90,6 +90,21 @@ impl Rom {
         <&[u8; DATASET_ACCESS_SIZE]>::try_from(&self.data[start..start + DATASET_ACCESS_SIZE])
             .unwrap()
     }
+
+    /// Get pointer to ROM data for FFI
+    pub fn as_ptr(&self) -> *const u8 {
+        self.data.as_ptr()
+    }
+
+    /// Get ROM data size in bytes
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Get pointer to ROM digest
+    pub fn digest_as_ptr(&self) -> *const u8 {
+        self.digest.0.as_ptr()
+    }
 }
 
 fn random_gen(gen_type: RomGenerationType, seed: [u8; 32], output: &mut [u8]) -> RomDigest {

@@ -1,0 +1,55 @@
+[package]
+name = "gpu-ashmaize"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["AshMaize Contributors"]
+license = "MIT OR Apache-2.0"
+description = "High-performance NVIDIA GPU miner for AshMaize PoW algorithm"
+repository = "https://github.com/input-output-hk/ce-ashmaize"
+keywords = ["cuda", "gpu", "mining", "pow", "ashmaize"]
+categories = ["cryptography", "algorithms"]
+
+[lib]
+name = "gpu_ashmaize"
+path = "src/lib.rs"
+
+[dependencies]
+# Parent crate for ROM generation and CPU reference
+ashmaize = { path = "..", version = "0.1.0" }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+# Testing
+criterion = "0.5"
+hex = "0.4"
+rand = "0.8"
+cryptoxide = "0.5"
+
+# Benchmarks will be added when implementation is complete
+# [[bench]]
+# name = "gpu_vs_cpu"
+# harness = false
+
+[build-dependencies]
+cc = "1.0"
+which = "8.0.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = false  # Keep symbols for profiling
+
+[profile.bench]
+inherits = "release"
+
+# Note: CUDA compilation handled by build.rs
+# Requires: CUDA Toolkit 12.0+ with nvcc in PATH

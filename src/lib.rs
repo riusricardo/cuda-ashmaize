@@ -168,6 +168,13 @@ impl VM {
 
         let program = Program::new(nb_instrs);
 
+        // DEBUG: Print initial state
+        eprintln!("CPU VM Init - First 4 regs: {:016x} {:016x} {:016x} {:016x}",
+                  regs[0], regs[1], regs[2], regs[3]);
+        eprintln!("CPU VM Init - prog_seed[0-7]: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
+                  prog_seed[0], prog_seed[1], prog_seed[2], prog_seed[3],
+                  prog_seed[4], prog_seed[5], prog_seed[6], prog_seed[7]);
+
         Self {
             program,
             regs,
@@ -223,9 +230,33 @@ impl VM {
 
     pub fn execute(&mut self, rom: &Rom, instr: u32) {
         self.program.shuffle(&self.prog_seed);
-        for _ in 0..instr {
-            self.step(rom)
+        
+        // DEBUG: Print first few shuffled bytes (only first loop)
+        if self.loop_counter == 0 {
+            eprintln!("CPU After shuffle - program[0-7]: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
+                      self.program.instructions[0], self.program.instructions[1],
+                      self.program.instructions[2], self.program.instructions[3],
+                      self.program.instructions[4], self.program.instructions[5],
+                      self.program.instructions[6], self.program.instructions[7]);
         }
+        
+        for i in 0..instr {
+            self.step(rom);
+            
+            // DEBUG: Print first register after first instruction
+            if i == 0 && self.loop_counter == 0 {
+                eprintln!("CPU After instr 0 - reg[0]: {:016x}, memory_counter: {}",
+                          self.regs[0], self.memory_counter);
+            }
+        }
+        
+        // DEBUG: Print state before post_instructions
+        if self.loop_counter == 0 {
+            eprintln!("CPU Before post_instr - reg[0-3]: {:016x} {:016x} {:016x} {:016x}",
+                      self.regs[0], self.regs[1], self.regs[2], self.regs[3]);
+            eprintln!("CPU Before post_instr - memory_counter: {}", self.memory_counter);
+        }
+        
         self.post_instructions()
     }
 
