@@ -12,12 +12,12 @@ AshMaize is a Proof-of-Work (PoW) algorithm designed to be ASIC-resistant while 
 
 ## Key Features
 
-- **🔐 Memory-Hard**: Uses Argon2H' for key derivation and program shuffling
-- **🎲 Random VM**: Executes randomized instruction sequences on a 32-register virtual machine
-- **📊 Large ROM**: Operates on configurable ROM sizes (64KB to 1GB+) for dataset access
-- **🚀 GPU Accelerated**: CUDA implementation with verified correctness against CPU reference
-- **🌐 WebAssembly**: Browser-compatible implementation for web mining
-- **⚡ ASIC Resistant**: Complex memory access patterns and dynamic instruction execution
+- **Memory-Hard**: Uses Argon2H' for key derivation and program shuffling
+- **Random VM**: Executes randomized instruction sequences on a 32-register virtual machine
+- **Large ROM**: Operates on configurable ROM sizes (64KB to 1GB+) for dataset access
+- **GPU Accelerated**: CUDA implementation with verified correctness against CPU reference
+- **WebAssembly**: Browser-compatible implementation for web mining
+- **ASIC Resistant**: Complex memory access patterns and dynamic instruction execution
 
 ## Architecture Overview
 
@@ -202,17 +202,18 @@ cargo test --release
 
 ### Test Coverage
 
-✅ **Blake2b-512**: 44/44 tests passing
-  - 28 CUDA unit tests
-  - 16 Python reference verification tests
+### Test Results Summary
 
-✅ **Argon2H'**: 13/13 CUDA tests passing
-  - Byte-perfect match between CPU and GPU
+**Blake2b-512**: 44/44 tests passing
+- Full test vector coverage from official RFC 7693
+- Incremental hashing tested with various input sizes
 
-✅ **VM Execution**: All integration tests passing
-  - Different ROM sizes (64KB to 1GB)
-  - Different parameters (loops: 2-16, instrs: 256-512)
-  - Multiple salts and edge cases
+**Argon2H'**: 13/13 CUDA tests passing
+- Reference implementation matches byte-for-byte
+
+**VM Execution**: All integration tests passing
+- Large ROM tests (256MB, 512MB, 1GB) validated
+- Multiple salts and parameter variations confirmed
 
 ## Performance
 
@@ -264,12 +265,12 @@ Each loop iteration:
 
 The GPU implementation includes comprehensive safety measures:
 
-- ✅ **Input Validation**: All parameters validated before kernel launch
-- ✅ **ROM Bounds Checking**: Clamping to prevent out-of-bounds reads
-- ✅ **Program Buffer Limits**: MAX_PROGRAM_INSTRS = 1024 (20KB per VM)
-- ✅ **NULL Pointer Checks**: Defensive validation at entry points
-- ✅ **Range Validation**: Sanity checks on all numeric inputs
-- ✅ **Graceful Degradation**: Clamps to limits rather than crashing
+- **Input Validation**: All parameters validated before kernel launch
+- **ROM Bounds Checking**: Clamping to prevent out-of-bounds reads
+- **Program Buffer Limits**: MAX_PROGRAM_INSTRS = 1024 (20KB per VM)
+- **NULL Pointer Checks**: Defensive validation at entry points
+- **Range Validation**: Sanity checks on all numeric inputs
+- **Graceful Degradation**: Clamps to limits rather than crashing
 
 **Tested with:**
 - ROMs up to 1GB
@@ -302,7 +303,7 @@ The GPU implementation includes comprehensive safety measures:
 
 **Critical Implementation Details:**
 
-1. **ROM Addressing Quirk** (⚠️ Important):
+1. **ROM Addressing Quirk** (Important):
    ```rust
    // CPU: rom.at(i) does modulo THEN uses result as byte offset
    let start = i % (data.len() / 64);  // Block index 0-4095
@@ -357,7 +358,7 @@ let hash = gpu_ashmaize::hash(salt, &rom, nb_loops, nb_instrs);
 - GPU instructions: `gpu-ashmaize/cuda/instructions.cu` (Mul opcode logging)
 - CPU VM: `src/lib.rs` (eprintln! statements present)
 
-⚠️ **Debug output should be removed/conditionalized before production**
+**Note:** Debug output should be removed/conditionalized before production
 
 ### Quick Reference Commands
 
