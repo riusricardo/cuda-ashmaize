@@ -114,11 +114,29 @@ fn main() {
         panic!("nvcc device linking failed");
     }
     
-    // Tell cargo where to find objects - we'll link them individually
-    for obj in &object_files {
-        println!("cargo:rustc-link-arg={}", obj.display());
+    // Add dlink to object files
+    object_files.push(dlink_obj);
+    
+    // Create static archive from all objects
+    let archive_path = out_dir.join("libgpu_ashmaize_cuda.a");
+    
+    println!("cargo:warning=Creating static archive: {}", archive_path.display());
+    
+    let status = Command::new("ar")
+        .arg("crus")
+        .arg(&archive_path)
+        .args(object_files.iter())
+        .status()
+        .expect("Failed to create static archive");
+    
+    if !status.success() {
+        panic!("ar failed to create static archive");
     }
-    println!("cargo:rustc-link-arg={}", dlink_obj.display());
+    
+    // Tell downstream crates to link this static archive
+    // Using +whole-archive ensures all symbols are included even if not directly referenced
+    println!("cargo:rustc-link-lib=static:+whole-archive=gpu_ashmaize_cuda");
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
     
     // Link CUDA runtime libraries
     println!("cargo:rustc-link-lib=static=cudadevrt");  // Device runtime for separate compilation  
