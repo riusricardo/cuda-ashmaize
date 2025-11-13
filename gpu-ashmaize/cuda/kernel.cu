@@ -50,50 +50,50 @@ __device__ void vm_execute(VM* vm, cudaTextureObject_t rom_texture, size_t rom_s
     argon2_hprime(vm->program.instructions, program_size, vm->prog_seed, 64);
     
     // DEBUG: Print first few shuffled bytes (only once)
-    if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
-        printf("GPU After shuffle - program[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-               vm->program.instructions[0], vm->program.instructions[1],
-               vm->program.instructions[2], vm->program.instructions[3],
-               vm->program.instructions[4], vm->program.instructions[5],
-               vm->program.instructions[6], vm->program.instructions[7]);
-    }
+    // if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
+    //     printf("GPU After shuffle - program[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+    //            vm->program.instructions[0], vm->program.instructions[1],
+    //            vm->program.instructions[2], vm->program.instructions[3],
+    //            vm->program.instructions[4], vm->program.instructions[5],
+    //            vm->program.instructions[6], vm->program.instructions[7]);
+    // }
     
     // Execute instructions (use clamped value for safety)
     for (uint32_t i = 0; i < actual_instrs; i++) {
         // DEBUG: Print instruction 2 bytes before execution
-        if (i == 2 && threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
-            uint32_t start = (vm->ip * INSTR_SIZE) % (actual_instrs * INSTR_SIZE);
-            printf("GPU Before instr 2 - bytes[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-                   vm->program.instructions[start], vm->program.instructions[start+1],
-                   vm->program.instructions[start+2], vm->program.instructions[start+3],
-                   vm->program.instructions[start+4], vm->program.instructions[start+5],
-                   vm->program.instructions[start+6], vm->program.instructions[start+7]);
-            printf("GPU Before instr 2 - reg[2] BEFORE: %016llx\n", vm->regs[2]);
-        }
+        // if (i == 2 && threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
+        //     uint32_t start = (vm->ip * INSTR_SIZE) % (actual_instrs * INSTR_SIZE);
+        //     printf("GPU Before instr 2 - bytes[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+        //            vm->program.instructions[start], vm->program.instructions[start+1],
+        //            vm->program.instructions[start+2], vm->program.instructions[start+3],
+        //            vm->program.instructions[start+4], vm->program.instructions[start+5],
+        //            vm->program.instructions[start+6], vm->program.instructions[start+7]);
+        //     printf("GPU Before instr 2 - reg[2] BEFORE: %016llx\n", vm->regs[2]);
+        // }
         
         vm_step(vm, rom_texture, rom_size);
         
         // DEBUG: Print registers after first few instructions
-        if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
-            if (i == 0) {
-                printf("GPU After instr 0 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
-                       vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
-            } else if (i == 1) {
-                printf("GPU After instr 1 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
-                       vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
-            } else if (i == 2) {
-                printf("GPU After instr 2 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
-                       vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
-            }
-        }
+        // if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
+        //     if (i == 0) {
+        //         printf("GPU After instr 0 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
+        //                vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
+        //     } else if (i == 1) {
+        //         printf("GPU After instr 1 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
+        //                vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
+        //     } else if (i == 2) {
+        //         printf("GPU After instr 2 - reg[0-3]: %016llx %016llx %016llx %016llx\n",
+        //                vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
+        //     }
+        // }
     }
     
     // DEBUG: Print state before post_instructions
-    if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
-        printf("GPU Before post_instr - reg[0-3]: %016llx %016llx %016llx %016llx\n",
-               vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
-        printf("GPU Before post_instr - memory_counter: %u\n", vm->memory_counter);
-    }
+    // if (threadIdx.x == 0 && blockIdx.x == 0 && vm->loop_counter == 0) {
+    //     printf("GPU Before post_instr - reg[0-3]: %016llx %016llx %016llx %016llx\n",
+    //            vm->regs[0], vm->regs[1], vm->regs[2], vm->regs[3]);
+    //     printf("GPU Before post_instr - memory_counter: %u\n", vm->memory_counter);
+    // }
     
     // Post-instructions mixing
     vm_post_instructions(vm);
@@ -154,13 +154,13 @@ GLOBAL void ashmaize_mine_kernel(
     vm_init(&vm, rom_digest, salt, salt_len, nb_instrs);
     
     // DEBUG: Print first 4 registers after init (only for thread 0)
-    if (tid == 0) {
-        printf("GPU VM Init - First 4 regs: %016llx %016llx %016llx %016llx\n",
-               vm.regs[0], vm.regs[1], vm.regs[2], vm.regs[3]);
-        printf("GPU VM Init - prog_seed[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-               vm.prog_seed[0], vm.prog_seed[1], vm.prog_seed[2], vm.prog_seed[3],
-               vm.prog_seed[4], vm.prog_seed[5], vm.prog_seed[6], vm.prog_seed[7]);
-    }
+    // if (tid == 0) {
+    //     printf("GPU VM Init - First 4 regs: %016llx %016llx %016llx %016llx\n",
+    //            vm.regs[0], vm.regs[1], vm.regs[2], vm.regs[3]);
+    //     printf("GPU VM Init - prog_seed[0-7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+    //            vm.prog_seed[0], vm.prog_seed[1], vm.prog_seed[2], vm.prog_seed[3],
+    //            vm.prog_seed[4], vm.prog_seed[5], vm.prog_seed[6], vm.prog_seed[7]);
+    // }
     
     // Execute nb_loops iterations (typically 8)
     // Check for early exit after each loop if another thread found solution

@@ -215,10 +215,10 @@ __device__ void execute_instruction(
         else if (opcode < 80) {
             // Mul
             // DEBUG: Print mul operands for opcode 71
-            if (opcode == 71 && threadIdx.x == 0 && blockIdx.x == 0) {
-                printf("GPU Mul (opcode=%u): src1=%016llx src2=%016llx r3=%u\n",
-                       opcode, src1, src2, instr->r3);
-            }
+            // if (opcode == 71 && threadIdx.x == 0 && blockIdx.x == 0) {
+            //     printf("GPU Mul (opcode=%u): src1=%016llx src2=%016llx r3=%u\n",
+            //            opcode, src1, src2, instr->r3);
+            // }
             result = src1 * src2;
         }
         else if (opcode < 96) {

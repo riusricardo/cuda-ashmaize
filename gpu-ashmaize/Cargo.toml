@@ -13,6 +13,7 @@ categories = ["cryptography", "algorithms"]
 [lib]
 name = "gpu_ashmaize"
 path = "src/lib.rs"
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 # Parent crate for ROM generation and CPU reference
