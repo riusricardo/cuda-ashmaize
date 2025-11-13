@@ -1,500 +1,775 @@
-# AshMaize GPU Miner (CUDA Implementation)
+# AshMaize GPU Implementation# AshMaize GPU Implementation
 
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](../LICENSE-MIT)
-[![CUDA](https://img.shields.io/badge/CUDA-12.0%2B-76B900.svg)](https://developer.nvidia.com/cuda-toolkit)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 
-High-performance NVIDIA GPU implementation of the AshMaize proof-of-work hash algorithm. Production-ready implementation with full CPU compatibility and automatic early exit optimization for mining operations.
 
-**Status**: Implementation complete and verified. All test vectors passing. Ready for production use.
+CUDA implementation of AshMaize with byte-perfect CPU compatibility.High-performance CUDA implementation of the AshMaize proof-of-work hash algorithm with byte-perfect CPU compatibility.
 
----
 
-## Overview
 
-AshMaize is an ASIC-resistant proof-of-work algorithm combining:
-- **Memory-hardness**: 10MB to 1GB ROM requirement
-- **Compute diversity**: 13-operation VM with Blake2b-512 and Argon2H'
-- **Sequential dependencies**: Complex VM state evolution preventing parallelization within single hash
+## Overview**Status**: Production ready. All tests passing. CPU/GPU hash equivalence verified.
 
-This GPU implementation leverages parallelism for **batch nonce mining**, where:
-- Single ROM shared across all GPU threads via texture memory (read-only, cached)
-- Each thread computes hash for different nonce/salt independently
-- Automatic early exit when solution found (mining optimization)
-- Optimal for proof-of-work mining operations requiring thousands of hash attempts
 
----
 
-## Features
+Parallel batch nonce mining optimized for NVIDIA GPUs:## Overview
 
-**Core Capabilities**
-- Drop-in replacement for CPU implementation (identical API)
-- Full byte-perfect compatibility with CPU reference
-- Support for ROM sizes: 1KB to 1GB (tested)
-- Parallel batch processing: up to 262K nonces simultaneously
-- Automatic early exit optimization for mining
 
-**Performance**
-- Approximately 25,000 hashes/second sustained throughput on RTX 5060
-- 16.7x speedup vs single-core CPU
-- 1.66x speedup vs 16-core CPU
-- Argon2H' generation: 15 MB/second for large ROMs
 
-**API Levels**
-1. Simple hash function (CPU-compatible)
-2. Reusable context (eliminates initialization overhead)
-3. Batch processing (maximum throughput)  
+- Single ROM shared via texture memory (cached, read-only)CUDA implementation of AshMaize optimized for parallel batch nonce mining:
 
----
+- Each thread computes independent hash (different salt/nonce)
 
-## System Requirements
+- No inter-thread communication required- Single ROM shared via texture memory (cached, read-only)
 
-### Hardware
-- NVIDIA GPU with CUDA support (Compute Capability 7.5+)
-  - Turing (RTX 20 series) or newer
-  - Ampere (RTX 30 series) recommended
-  - Ada Lovelace (RTX 40 series) optimal
-- 8GB+ GPU memory (for large ROMs)
+- Optimal for proof-of-work mining workloads- Each thread computes independent hash (different salt/nonce)
 
-### Software
-- CUDA Toolkit 12.0 or later
-- Rust 1.75 or later
-- Linux (tested), Windows (should work), macOS (untested)
+- No inter-thread communication required
 
----
+**Key Characteristics:**- Optimal for proof-of-work mining workloads
 
-## Installation
+- Sequential bottleneck: Argon2H' (64% of time, cannot parallelize within hash)
 
-### Prerequisites
+- Parallelization: Thread-level (many independent hashes)**Key Characteristics:**
+
+- Memory efficient: Single ROM shared across all threads- Sequential bottleneck: Argon2H' (64% of execution time, cannot parallelize within hash)
+
+- Parallelization strategy: Many independent hash computations
+
+## Features- Memory efficient: Single 256MB ROM shared across all threads vs 256MB per CPU core
+
+
+
+- Drop-in replacement for CPU `hash()` function## Features
+
+- Byte-perfect compatibility with CPU
+
+- ROM sizes: 64 bytes to 1GB- Drop-in replacement for CPU `hash()` function (identical signature)
+
+- Batch processing: up to 262K salts per launch- Byte-perfect compatibility with CPU implementation
+
+- Three API tiers: simple, reusable, batch- ROM sizes: 64 bytes to 1GB (tested)
+
+- Batch processing: up to 262K salts per kernel launch
+
+**Performance (RTX 5060, 256MB ROM, 8 loops, 256 instrs):**- Three API tiers: simple, reusable context, batch processing
+
+- Single hash: ~370ms (includes upload)
+
+- Batch: ~25,000 hash/sec**Performance (RTX 5060, 256MB ROM, 8 loops, 256 instructions):**
+
+- Speedup: 16-18x vs single-core CPU- Single hash: ~370ms (includes upload overhead)
+
+- Batch throughput: ~25,000 hash/sec
+
+## Requirements- Speedup: 16-18x vs single-core CPU, 1.15x vs 16-core CPU
+
+
+
+**Hardware:**## Requirements
+
+- NVIDIA GPU with Compute Capability 7.5+
+
+- 8GB+ GPU memory recommended**Hardware:**
+
+- NVIDIA GPU with Compute Capability 7.5+ (Turing/Ampere/Ada)
+
+**Software:**- 8GB+ GPU memory (for large ROMs)
+
+- CUDA Toolkit 12.0+
+
+- Rust 1.75+**Software:**
+
+- nvcc in PATH- CUDA Toolkit 12.0+
+
+- Rust 1.75+
+
+## Installation- nvcc compiler in PATH
+
+- Linux (tested), Windows/macOS (untested)
 
 ```bash
-# Install CUDA Toolkit
-# https://developer.nvidia.com/cuda-downloads
 
-# Verify CUDA installation
+# Verify CUDA## Installation
+
 nvcc --version
 
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-### Build from Source
-
 ```bash
-# Clone repository
-git clone <repo-url>
-cd ce-ashmaize/gpu-ashmaize
 
-# Build (automatically compiles CUDA kernels)
+# Build# Prerequisites: CUDA Toolkit 12.0+, nvcc in PATH
+
+cd gpu-ashmaizenvcc --version
+
 cargo build --release
 
-# Run tests
+# Build
+
+# Testcd gpu-ashmaize
+
+cargo test --releasecargo build --release
+
+cargo run --release --example minimal_test
+
+```# Run tests
+
 cargo test --release
 
-# Run benchmarks
-cargo bench
+## Usagecargo run --release --example minimal_test
+
 ```
 
----
+### API Tier 1: Drop-in Replacement
 
-## Quick Start
-
-### CPU Implementation (Reference)
+## Usage
 
 ```rust
-use ashmaize::{hash, Rom};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Generate ROM (10MB, can be up to 1GB)
-    let rom = Rom::new(10_000_000, b"seed")?;
-    
-    // Compute single hash
-    let digest = hash(b"salt123", &rom, 8, 256)?;
-    println!("Hash: {:02x?}", &digest[..8]);
-    
-    // Mining loop - test many nonces sequentially
-    for nonce in 0..1000000 {
-        let salt = nonce.to_le_bytes();
-        let digest = hash(&salt, &rom, 8, 256)?;
-        
-        if check_difficulty(&digest, 20) {
-            println!("Found solution at nonce {}", nonce);
-            break;
-        }
-    }
-    
-    Ok(())
-}
-```
+use gpu_ashmaize::hash;### API Tier 1: Drop-in Replacement
 
-**Performance**: ~1,500 hashes/second single-core, ~15,000 hashes/second on 16 cores
-
-### GPU Implementation - Tier 1: Direct Replacement
+use ashmaize::{Rom, RomGenerationType};
 
 ```rust
-use gpu_ashmaize::hash;  // Only change: import from gpu_ashmaize
-use ashmaize::Rom;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Identical API to CPU version
-    let rom = Rom::new(10_000_000, b"seed")?;
-    let digest = hash(b"salt123", &rom, 8, 256)?;
-    println!("Hash: {:02x?}", &digest[..8]);
-    
-    Ok(())
+const MB: usize = 1024 * 1024;use gpu_ashmaize::hash;  // Only change from CPU version
+
+use ashmaize::{Rom, RomGenerationType};
+
+let rom = Rom::new(
+
+    b"seed",const MB: usize = 1024 * 1024;
+
+    RomGenerationType::TwoStep {
+
+        pre_size: 16 * 1024,let rom = Rom::new(
+
+        mixing_numbers: 4    b"seed",
+
+    },    RomGenerationType::TwoStep { pre_size: 16*1024, mixing_numbers: 4 },
+
+    256 * MB    256 * MB
+
+););
+
+
+
+let digest = hash(b"nonce", &rom, 8, 256);let digest = hash(b"nonce", &rom, 8, 256);
+
+``````
+
+
+
+Identical to CPU `ashmaize::hash()`. Includes ROM upload overhead per call.Identical signature to CPU `ashmaize::hash()`. Includes ROM upload overhead per call.
+
+
+
+### API Tier 2: Reusable Context### API Tier 2: Reusable Context
+
+
+
+```rust```rust
+
+use gpu_ashmaize::GpuMiner;use gpu_ashmaize::GpuMiner;
+
+use ashmaize::{Rom, RomGenerationType};use ashmaize::{Rom, RomGenerationType};
+
+
+
+let rom = Rom::new(b"seed", RomGenerationType::TwoStep { ... }, 256*MB);let rom = Rom::new(b"seed", RomGenerationType::TwoStep { ... }, 256*MB);
+
+
+
+let mut miner = GpuMiner::with_params(8, 256)?;let mut miner = GpuMiner::with_params(8, 256)?;
+
+miner.upload_rom(&rom)?;miner.upload_rom(&rom)?;  // Upload once
+
+
+
+for nonce in 0..1_000_000 {for nonce in 0..1_000_000 {
+
+    let salt = nonce.to_le_bytes();    let salt = nonce.to_le_bytes();
+
+    let digest = miner.hash(&salt)?;    let digest = miner.hash(&salt)?;
+
+    // Check solution...    // Check solution...
+
+}}
+
+``````
+
+
+
+Amortizes ROM upload across many computations.Amortizes ROM upload cost across many hash computations.
+
+
+
+### API Tier 3: Batch Processing (Recommended)### API Tier 3: Batch Processing (Recommended)
+
+
+
+```rust```rust
+
+use gpu_ashmaize::hash_batch;use gpu_ashmaize::hash_batch;
+
+use ashmaize::{Rom, RomGenerationType};use ashmaize::{Rom, RomGenerationType};
+
+
+
+let rom = Rom::new(b"seed", RomGenerationType::TwoStep { ... }, 256*MB);let rom = Rom::new(b"seed", RomGenerationType::TwoStep { ... }, 256*MB);
+
+
+
+let salts: Vec<Vec<u8>> = (0..65536)// Generate 65K nonces
+
+    .map(|i| i.to_le_bytes().to_vec())let salts: Vec<Vec<u8>> = (0..65536)
+
+    .collect();    .map(|i| i.to_le_bytes().to_vec())
+
+    .collect();
+
+let digests = hash_batch(&salts, &rom, 8, 256)?;
+
+// Compute all in parallel
+
+for (i, digest) in digests.iter().enumerate() {let digests = hash_batch(&salts, &rom, 8, 256)?;
+
+    // Process result...
+
+}for (i, digest) in digests.iter().enumerate() {
+
+```    // Check each result...
+
 }
-```
 
-**Performance**: 16.7x faster than CPU single-core (but inefficient for single hashes)
+Maximum throughput for mining operations.```
 
-### GPU Implementation - Tier 2: Reusable Context
 
-```rust
-use gpu_ashmaize::GpuMiner;
-use ashmaize::Rom;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rom = Rom::new(10_000_000, b"seed")?;
-    
-    // Upload ROM once, reuse for many hashes
-    let mut miner = GpuMiner::with_params(8, 256)?;
-    miner.upload_rom(&rom)?;
-    
-    // Mining loop - sequential but amortized initialization
-    for nonce in 0..1000000 {
-        let salt = nonce.to_le_bytes();
-        let digest = miner.hash(&salt)?;
-        
-        if check_difficulty(&digest, 20) {
-            println!("Found solution at nonce {}", nonce);
-            break;
-        }
-    }
-    
-    Ok(())
-}
-```
+## ArchitectureMaximum throughput (~25,000 hash/sec on RTX 5060).
 
-**Performance**: Eliminates ROM upload overhead, useful for sequential mining
 
-### GPU Implementation - Tier 3: Batch Mining (Recommended)
 
-```rust
-use gpu_ashmaize::hash_batch;
-use ashmaize::Rom;
+### Memory Layout### Early Exit Optimization
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rom = Rom::new(10_000_000, b"seed")?;
-    
-    let mut nonce_base = 0u64;
-    loop {
-        // Generate batch of nonces to test in parallel
-        let batch_size = 65536;
-        let salts: Vec<Vec<u8>> = (0..batch_size)
-            .map(|i| (nonce_base + i).to_le_bytes().to_vec())
-            .collect();
-        
-        // Compute all hashes in parallel on GPU
-        // Early exit: if any thread finds solution, all threads stop
-        let digests = hash_batch(&salts, &rom, 8, 256)?;
-        
-        // Check results
-        for (i, digest) in digests.iter().enumerate() {
-            if check_difficulty(digest, 20) {
-                println!("Found solution at nonce {}", nonce_base + i as u64);
-                return Ok(());
-            }
-        }
-        
-        nonce_base += batch_size;
-    }
-}
 
-fn check_difficulty(hash: &[u8], zero_bits: u32) -> bool {
-    let full_bytes = (zero_bits / 8) as usize;
-    let remaining_bits = zero_bits % 8;
-    
-    // Check leading zero bytes
-    if !hash[..full_bytes].iter().all(|&b| b == 0) {
-        return false;
-    }
-    
-    // Check remaining bits
-    if remaining_bits > 0 {
-        let mask = 0xFF << (8 - remaining_bits);
-        if (hash[full_bytes] & mask) != 0 {
-            return false;
-        }
-    }
-    
-    true
-}
-```
 
-**Performance**: ~25,000 hashes/second, optimal for mining operations
+```The GPU kernel includes automatic early exit optimization:
 
-### Early Exit Optimization
+GPU Global Memory:
 
-The GPU kernel includes automatic early exit optimization:
+  ROM: Texture memory (256MB, cached, shared)```cuda
 
-```cuda
-// In kernel: each thread checks if another thread found solution
-for (uint32_t loop = 0; loop < nb_loops; loop++) {
+  Input: Flattened salts (~2MB for 65K)// In kernel: each thread checks if another thread found solution
+
+  Output: Hash results (~4MB for 65K)for (uint32_t loop = 0; loop < nb_loops; loop++) {
+
     if (atomicAdd(d_solution_found, 0) > 0) {
-        return;  // Another thread found solution, stop computing
-    }
-    vm_execute(&vm, rom_texture, nb_instrs);
-}
-```
 
-**Benefit**: When any thread finds a solution, all other threads stop immediately, saving up to 7/8 of computation time (for 8-loop configuration).
+Per-Thread (registers + local):        return;  // Another thread found solution, stop computing
 
-**Trade-off**: Small overhead (~0.1%) checking flag between loops. Net benefit significant for mining operations where solutions are rare.
+  VM registers: 32 x 64-bit    }
 
----
+  Blake2b contexts: 2 x 232 bytes    vm_execute(&vm, rom_texture, nb_instrs);
 
-## Architecture
+  Program buffer: 5KB (256 instrs)}
 
-### Memory Layout
+  Argon2H' working: ~512KB temporary```
 
-```
-GPU Global Memory
-├── ROM (texture memory, cached)    : 10MB - 1GB
-├── Salt input batch                : ~2 MB (65K salts)
-├── Hash output batch               : ~4 MB (65K results)
+  Total: ~518KB per thread
+
+```**Benefit**: When any thread finds a solution, all other threads stop immediately, saving up to 7/8 of computation time (for 8-loop configuration).
+
+
+
+### Execution Flow**Trade-off**: Small overhead (~0.1%) checking flag between loops. Net benefit significant for mining operations where solutions are rare.
+
+
+
+```---
+
+Rust → FFI → CUDA Kernel Grid
+
+              ↓ Per-thread## Architecture
+
+              VM Execution:
+
+                1. Init (Argon2H')### Memory Layout
+
+                2. Loop 8x:
+
+                   - Shuffle program (Argon2H')```
+
+                   - Execute 256 instructionsGPU Global Memory
+
+                   - Post-mixing (Argon2H')├── ROM (texture memory, cached)    : 10MB - 1GB
+
+                3. Finalize → 64-byte hash├── Salt input batch                : ~2 MB (65K salts)
+
+```├── Hash output batch               : ~4 MB (65K results)
+
 └── Success flags                   : ~64 KB
 
+### Parallelization
+
 Per-Thread State (registers + local)
-├── VM struct                       : ~750 bytes
-├── Program instructions            : ~5 KB
-└── Argon2H' working memory         : ~512 KB (temporary)
-```
 
-### Execution Flow
+- Each thread: independent hash├── VM struct                       : ~750 bytes
+
+- No synchronization required├── Program instructions            : ~5 KB
+
+- Single ROM shared (texture memory)└── Argon2H' working memory         : ~512 KB (temporary)
+
+- Bottleneck: Sequential Argon2H' (accept and compensate with thread parallelism)```
+
+
+
+## Project Structure### Execution Flow
+
+
+
+``````
+
+gpu-ashmaize/Rust Application
+
+├── src/    ↓ FFI
+
+│   ├── lib.rs          # Public APICUDA Kernel Grid (131,072 threads)
+
+│   ├── ffi.rs          # CUDA FFI    ↓ Per-thread
+
+│   └── error.rs        # Error typesVM Execution
+
+├── cuda/    ├── VM init (Argon2H' from ROM + salt)
+
+│   ├── blake2b.cu/cuh  # Blake2b-512    ├── Loop 8 times:
+
+│   ├── argon2.cu/cuh   # Argon2H'    │   ├── Program shuffle (Argon2H')
+
+│   ├── vm.cu/cuh       # VM state    │   ├── Execute 256 instructions
+
+│   ├── instructions.cu/cuh # Execution    │   └── Post-instructions mixing (Argon2H')
+
+│   └── kernel.cu/cuh   # Main kernel    └── Finalize (combine digests → hash)
+
+├── examples/           # Usage examples```
+
+├── tests/              # CUDA tests (*.cu)
+
+└── build.rs            # CUDA compilation---
 
 ```
-Rust Application
-    ↓ FFI
-CUDA Kernel Grid (131,072 threads)
-    ↓ Per-thread
-VM Execution
-    ├── VM init (Argon2H' from ROM + salt)
-    ├── Loop 8 times:
-    │   ├── Program shuffle (Argon2H')
-    │   ├── Execute 256 instructions
-    │   └── Post-instructions mixing (Argon2H')
-    └── Finalize (combine digests → hash)
-```
-
----
 
 ## Project Structure
 
+## Testing
+
 ```
-gpu-ashmaize/
+
+### CUDA Unit Testsgpu-ashmaize/
+
 ├── Cargo.toml           # Rust dependencies and config
-├── build.rs             # CUDA compilation script
-├── README.md            # This file
+
+```bash├── build.rs             # CUDA compilation script
+
+cd gpu-ashmaize├── README.md            # This file
+
 │
-├── src/
-│   ├── lib.rs          # Public Rust API
+
+# All CUDA tests├── src/
+
+make test│   ├── lib.rs          # Public Rust API
+
 │   ├── ffi.rs          # C FFI declarations
-│   └── error.rs        # Error types
-│
-├── cuda/
-│   ├── kernel.cu       # Main mining kernel
+
+# Individual primitives│   └── error.rs        # Error types
+
+make test-blake2b   # 44/44 passing│
+
+make test-argon2    # 13/13 passing├── cuda/
+
+```│   ├── kernel.cu       # Main mining kernel
+
 │   ├── vm.cu           # VM implementation
-│   ├── instructions.cu # Instruction execution
+
+### Rust Integration Tests│   ├── instructions.cu # Instruction execution
+
 │   ├── blake2b.cu      # Blake2b-512 implementation
-│   ├── argon2.cu       # Argon2H' implementation
-│   └── common.cuh      # Shared headers
-│
+
+```bash│   ├── argon2.cu       # Argon2H' implementation
+
+# Quick verification│   └── common.cuh      # Shared headers
+
+cargo run --release --example minimal_test│
+
 ├── tests/
-│   ├── correctness.rs  # Test vectors
-│   └── integration.rs  # Full system tests
+
+# Systematic validation│   ├── correctness.rs  # Test vectors
+
+cargo run --release --example systematic_debug│   └── integration.rs  # Full system tests
+
 │
-├── benches/
-│   └── gpu_vs_cpu.rs   # Performance comparisons
+
+# Large ROM stress test (256MB, 512MB, 1GB)├── benches/
+
+cargo run --release --example test_large_roms│   └── gpu_vs_cpu.rs   # Performance comparisons
+
 │
-└── examples/
-    ├── simple_mining.rs  # Basic usage
-    └── batch_mining.rs   # Advanced usage
-```
 
----
+# CPU/GPU equivalence└── examples/
 
-## Mining-Specific Optimizations
+cargo test --release    ├── simple_mining.rs  # Basic usage
 
-### Automatic Early Exit
-
-The GPU kernel includes transparent early exit optimization for mining workloads:
-
-**Implementation Details**
-```cuda
-// Global atomic flag shared across all threads
-uint32_t* d_solution_found;
-
-// In kernel loop (checked after each VM execution)
-for (uint32_t loop = 0; loop < nb_loops; loop++) {
-    // Check if another thread found solution
-    if (atomicAdd(d_solution_found, 0) > 0) {
-        d_success_flags[tid] = 0;  // Mark as not checked
-        return;  // Stop computing immediately
-    }
-    
-    vm_execute(&vm, rom_texture, nb_instrs);
-}
-
-// After finalization, signal solution found
-if (check_difficulty(output, required_bits)) {
-    d_success_flags[tid] = 1;
-    atomicAdd(d_solution_found, 1);  // Signal all threads
-}
-```
-
-**Performance Impact**
-
-| Scenario | Without Early Exit | With Early Exit | Savings |
-|----------|-------------------|-----------------|---------|
-| Solution at loop 1/8 | 100% work | 12.5% work | 87.5% |
-| Solution at loop 4/8 | 100% work | 50% work | 50% |
-| Solution at loop 7/8 | 100% work | 87.5% work | 12.5% |
-| No solution found | 100% work | 100.1% work | -0.1% (overhead) |
-
-**When It Matters**
-- Hard difficulty (solutions rare): Minimal overhead, no benefit most batches
-- Medium difficulty (occasional solutions): Moderate benefit when solution found
-- Easy difficulty (frequent solutions): Maximum benefit, significant time savings
-
-**Trade-offs**
-- Cost: Atomic read after each loop (~1-2 GPU cycles)
-- Benefit: Skip remaining loops when solution found (saves 1000s of cycles)
-- Net effect: ~0.1% overhead in worst case, up to 87.5% speedup in best case
-
-**Synchronization Behavior**
-
-Threads do not synchronize immediately. Behavior:
-1. Thread A finds solution at time T, sets flag
-2. Thread B checks flag at time T+1 (after completing current loop)
-3. Thread B exits without starting next loop
-4. Result: Mixed exit times but all threads stop within one loop duration
-
-No thread synchronization primitives required, avoiding expensive barriers.
-
-### Shared ROM Architecture
-
-**Single ROM, Multiple Threads**
+```    └── batch_mining.rs   # Advanced usage
 
 ```
-GPU Memory Layout
-┌─────────────────────────────────────┐
-│ ROM (10MB-1GB)                      │ ← Single copy, shared
-│ - Stored in texture memory          │
-│ - Read-only, cached                 │
-│ - Accessible by all threads         │
-└─────────────────────────────────────┘
-         ↓         ↓         ↓
-    Thread 0   Thread 1  ... Thread N
-    Nonce 0    Nonce 1      Nonce N
-       ↓          ↓            ↓
-    Hash 0     Hash 1       Hash N
-```
-
-**Benefits**
-- Memory efficient: 10MB total vs 10MB × thread count on CPU
-- Cache efficient: Texture cache shared across threads
-- Bandwidth efficient: Cached reads reduce memory traffic
-
-**Implementation**
-```rust
-// Upload ROM once
-let rom_handle = gpu_upload_rom(rom_data, rom_digest);
-
-// Use for millions of nonces
-loop {
-    let salts = generate_batch(batch_size);
-    let (hashes, flags) = gpu_mine_batch(rom_handle, salts, ...);
-    if let Some(solution) = check_flags(flags) {
-        break;
-    }
-}
-
-// Cleanup when done
-gpu_free_rom(rom_handle);
-```
-
-**Texture Memory Properties**
-- Cached: Repeated access to same ROM location is fast
-- Read-only: Hardware enforced, prevents corruption
-- 2D/3D addressing: Efficient for structured data access
-- Interpolation: Not used (point sampling only)
-
-## Implementation Status
-
-### Completed Components
-
-- [x] Algorithm analysis and documentation
-- [x] CUDA architecture design
-- [x] Blake2b-512 implementation (28/28 tests passing)
-- [x] Argon2H' implementation (13/13 tests passing)
-- [x] VM and instruction set (all tests passing)
-- [x] Kernel integration with early exit optimization
-- [x] Rust FFI layer
-- [x] API design (three tiers)
-- [x] Build system with automatic CUDA compilation
-- [x] Performance optimization
-- [x] Hash correctness validation (byte-perfect match with CPU)
-- [x] Large ROM support (tested up to 1GB)
-- [x] Automatic early exit for mining efficiency
 
 ### Test Results
 
-**Blake2b Tests**: 28/28 passing
-```
-- Standard test vectors
-- Edge cases (empty input, max length)
-- Streaming API
-- Buffer aliasing
-```
-
-**Argon2H' Tests**: 13/13 passing
-```
-- Variable output lengths (32B to 1GB)
-- Test vectors from cryptoxide
-- Exact seed matching with CPU
-- Loop termination correctness
-```
-
-**Integration Tests**: All passing
-```
-- End-to-end hash computation
-- Batch processing
-- ROM upload and management
-- Early exit behavior
-```
-
-### Known Limitations
-
-**Performance Constraints**
-- Argon2H' is inherently sequential (cannot parallelize within single hash)
-- Large ROM generation is memory-bandwidth limited (~15 MB/s)
-- Batch size must fit GPU memory (typical: 64K-262K nonces)
-
-**Platform Support**
-- Tested on Linux with CUDA 13.0 and RTX 5060
-- Windows support expected but untested
-- macOS not supported (no CUDA)
-
-### Recent Fixes
-
-**Argon2H' Loop Termination Bug** (November 2025)
-- **Issue**: GPU performed 13 iterations where CPU performed 11 + final
-- **Root Cause**: Loop condition mismatch (`while output_offset < len` vs `while bytes_remaining > 64`)
-- **Fix**: Matched GPU loop logic to CPU reference implementation exactly
-- **Result**: Byte-perfect hash matching across all test vectors
-- **Documentation**: See ARGON2_FIX_SUMMARY.md for detailed analysis
-
 ---
+
+**Blake2b-512:** 44/44 tests passing
+
+- RFC 7693 test vectors## Mining-Specific Optimizations
+
+- Incremental hashing
+
+- Context cloning### Automatic Early Exit
+
+
+
+**Argon2H':** 13/13 tests passingThe GPU kernel includes transparent early exit optimization for mining workloads:
+
+- Variable-length output
+
+- Byte-perfect with cryptoxide**Implementation Details**
+
+```cuda
+
+**VM Execution:** All passing// Global atomic flag shared across all threads
+
+- ROM: 64KB to 1GBuint32_t* d_solution_found;
+
+- CPU/GPU hash equivalence verified
+
+- Multiple parameter combinations// In kernel loop (checked after each VM execution)
+
+for (uint32_t loop = 0; loop < nb_loops; loop++) {
+
+## Performance    // Check if another thread found solution
+
+    if (atomicAdd(d_solution_found, 0) > 0) {
+
+### Benchmark Results (RTX 5060, 256MB ROM, 8 loops, 256 instrs)        d_success_flags[tid] = 0;  // Mark as not checked
+
+        return;  // Stop computing immediately
+
+**ROM Generation (one-time):**    }
+
+- TwoStep: ~430ms    
+
+- Upload to GPU: ~50ms    vm_execute(&vm, rom_texture, nb_instrs);
+
+}
+
+**Hash Computation:**
+
+// After finalization, signal solution found
+
+| Configuration | Throughput | Notes |if (check_difficulty(output, required_bits)) {
+
+|---------------|------------|-------|    d_success_flags[tid] = 1;
+
+| CPU single-core | ~1,370 hash/sec | Reference |    atomicAdd(d_solution_found, 1);  // Signal all threads
+
+| CPU 16-core | ~21,700 hash/sec | Parallel |}
+
+| GPU single hash | ~370ms | Includes upload overhead |```
+
+| GPU batch 1K | ~4,500 hash/sec | Small batch |
+
+| GPU batch 64K | ~25,000 hash/sec | Optimal |**Performance Impact**
+
+
+
+**Speedup:**| Scenario | Without Early Exit | With Early Exit | Savings |
+
+- 16-18x vs single-core CPU|----------|-------------------|-----------------|---------|
+
+- 1.15x vs 16-core CPU| Solution at loop 1/8 | 100% work | 12.5% work | 87.5% |
+
+- Best for large batches| Solution at loop 4/8 | 100% work | 50% work | 50% |
+
+| Solution at loop 7/8 | 100% work | 87.5% work | 12.5% |
+
+### Performance Notes| No solution found | 100% work | 100.1% work | -0.1% (overhead) |
+
+
+
+- Argon2H' dominates (64% of time, sequential)**When It Matters**
+
+- Blake2b ~35% of time- Hard difficulty (solutions rare): Minimal overhead, no benefit most batches
+
+- Instructions <1% of time- Medium difficulty (occasional solutions): Moderate benefit when solution found
+
+- GPU excels at batch processing- Easy difficulty (frequent solutions): Maximum benefit, significant time savings
+
+- CPU competitive for single hashes
+
+**Trade-offs**
+
+## Implementation Details- Cost: Atomic read after each loop (~1-2 GPU cycles)
+
+- Benefit: Skip remaining loops when solution found (saves 1000s of cycles)
+
+### Cryptographic Primitives- Net effect: ~0.1% overhead in worst case, up to 87.5% speedup in best case
+
+
+
+**Blake2b-512:****Synchronization Behavior**
+
+- Custom CUDA implementation
+
+- Incremental hashing supportThreads do not synchronize immediately. Behavior:
+
+- Context cloning for Special operands1. Thread A finds solution at time T, sets flag
+
+- ~3000 invocations per hash2. Thread B checks flag at time T+1 (after completing current loop)
+
+3. Thread B exits without starting next loop
+
+**Argon2H':**4. Result: Mixed exit times but all threads stop within one loop duration
+
+- Ported from cryptoxide
+
+- Variable-length output (448, 5120, 8192 bytes)No thread synchronization primitives required, avoiding expensive barriers.
+
+- Sequential execution per thread
+
+- 17 invocations per hash### Shared ROM Architecture
+
+
+
+### Known Quirks (Maintained for Consensus)**Single ROM, Multiple Threads**
+
+
+
+**Mod Operation Bug:**```
+
+```rustGPU Memory Layout
+
+Op3::Mod => src1 / src2  // Should be src1 % src2┌─────────────────────────────────────┐
+
+```│ ROM (10MB-1GB)                      │ ← Single copy, shared
+
+│ - Stored in texture memory          │
+
+**ROM Addressing:**│ - Read-only, cached                 │
+
+```rust│ - Accessible by all threads         │
+
+let start = (addr % (rom.len() / 64)) * 64;└─────────────────────────────────────┘
+
+```         ↓         ↓         ↓
+
+    Thread 0   Thread 1  ... Thread N
+
+**Memory Counter Cycling:**    Nonce 0    Nonce 1      Nonce N
+
+```rust       ↓          ↓            ↓
+
+let idx = (memory_counter % 8) * 8;    Hash 0     Hash 1       Hash N
+
+``````
+
+
+
+All GPU behavior matches CPU exactly.**Benefits**
+
+- Memory efficient: 10MB total vs 10MB × thread count on CPU
+
+### Constraints- Cache efficient: Texture cache shared across threads
+
+- Bandwidth efficient: Cached reads reduce memory traffic
+
+- MAX_PROGRAM_INSTRS: 1024
+
+- Compute Capability: ≥7.5 required**Implementation**
+
+- ROM practical limit: ~1GB```rust
+
+- Batch size limit: GPU memory dependent// Upload ROM once
+
+let rom_handle = gpu_upload_rom(rom_data, rom_digest);
+
+## CPU vs GPU Comparison
+
+// Use for millions of nonces
+
+### When to Use CPUloop {
+
+    let salts = generate_batch(batch_size);
+
+- Single hash or small batch    let (hashes, flags) = gpu_mine_batch(rom_handle, salts, ...);
+
+- Memory constrained    if let Some(solution) = check_flags(flags) {
+
+- No CUDA GPU available        break;
+
+- Power efficiency critical    }
+
+}
+
+### When to Use GPU
+
+// Cleanup when done
+
+- Mining (millions of nonces)gpu_free_rom(rom_handle);
+
+- Batch validation```
+
+- Bulk verification
+
+- High throughput required**Texture Memory Properties**
+
+- Cached: Repeated access to same ROM location is fast
+
+### Migration Strategy- Read-only: Hardware enforced, prevents corruption
+
+- 2D/3D addressing: Efficient for structured data access
+
+1. Verify compatibility:- Interpolation: Not used (point sampling only)
+
+```rust
+
+let cpu_digest = ashmaize::hash(salt, &rom, 8, 256);## Implementation Status
+
+let gpu_digest = gpu_ashmaize::hash(salt, &rom, 8, 256);
+
+assert_eq!(cpu_digest, gpu_digest);### Completed Components
+
+```
+
+- [x] Algorithm analysis and documentation
+
+2. Benchmark your workload- [x] CUDA architecture design
+
+3. Use hybrid approach if needed- [x] Blake2b-512 implementation (28/28 tests passing)
+
+- [x] Argon2H' implementation (13/13 tests passing)
+
+## Documentation- [x] VM and instruction set (all tests passing)
+
+- [x] Kernel integration with early exit optimization
+
+**CUDA Analysis:**- [x] Rust FFI layer
+
+- [00_INDEX.md](../docs/cuda-analysis/00_INDEX.md) - Documentation index- [x] API design (three tiers)
+
+- [01_VM_ARCHITECTURE.md](../docs/cuda-analysis/01_VM_ARCHITECTURE.md) - VM state- [x] Build system with automatic CUDA compilation
+
+- [02_ROM_GENERATION.md](../docs/cuda-analysis/02_ROM_GENERATION.md) - ROM generation- [x] Performance optimization
+
+- [03_CRYPTOGRAPHIC_PRIMITIVES.md](../docs/cuda-analysis/03_CRYPTOGRAPHIC_PRIMITIVES.md) - Blake2b/Argon2H'- [x] Hash correctness validation (byte-perfect match with CPU)
+
+- [04_INSTRUCTION_SET.md](../docs/cuda-analysis/04_INSTRUCTION_SET.md) - Instructions- [x] Large ROM support (tested up to 1GB)
+
+- [05_CUDA_ARCHITECTURE.md](../docs/cuda-analysis/05_CUDA_ARCHITECTURE.md) - Kernel design- [x] Automatic early exit for mining efficiency
+
+- [SUMMARY.md](../docs/cuda-analysis/SUMMARY.md) - Summary
+
+### Test Results
+
+**API Documentation:**
+
+```bash**Blake2b Tests**: 28/28 passing
+
+cargo doc --open```
+
+```- Standard test vectors
+
+- Edge cases (empty input, max length)
+
+## Contributing- Streaming API
+
+- Buffer aliasing
+
+Contributions welcome. Please ensure:```
+
+
+
+1. All tests pass (Rust and CUDA)**Argon2H' Tests**: 13/13 passing
+
+2. CPU/GPU hash equivalence maintained```
+
+3. Code formatted (`cargo fmt`)- Variable output lengths (32B to 1GB)
+
+4. No new warnings (`cargo clippy`)- Test vectors from cryptoxide
+
+5. Documentation updated- Exact seed matching with CPU
+
+- Loop termination correctness
+
+## Troubleshooting```
+
+
+
+**CUDA not found:****Integration Tests**: All passing
+
+``````
+
+Error: nvcc not found- End-to-end hash computation
+
+```- Batch processing
+
+Install CUDA Toolkit and add to PATH.- ROM upload and management
+
+- Early exit behavior
+
+**Out of memory:**```
+
+```
+
+Error: cudaMalloc failed### Known Limitations
+
+```
+
+Reduce batch size or ROM size.**Performance Constraints**
+
+- Argon2H' is inherently sequential (cannot parallelize within single hash)
+
+**Hash mismatch:**- Large ROM generation is memory-bandwidth limited (~15 MB/s)
+
+```- Batch size must fit GPU memory (typical: 64K-262K nonces)
+
+Error: GPU hash != CPU hash
+
+```**Platform Support**
+
+Check CUDA Toolkit version (12.0+), verify test vectors.- Tested on Linux with CUDA 13.0 and RTX 5060
+
+- Windows support expected but untested
+
+## License- macOS not supported (no CUDA)
+
+
+
+Dual-licensed under MIT and Apache-2.0, same as parent project.### Recent Fixes
+
+
+
+## Status**Argon2H' Loop Termination Bug** (November 2025)
+
+- **Issue**: GPU performed 13 iterations where CPU performed 11 + final
+
+- Implementation: Complete- **Root Cause**: Loop condition mismatch (`while output_offset < len` vs `while bytes_remaining > 64`)
+
+- Testing: All tests passing (Blake2b 44/44, Argon2H' 13/13)- **Fix**: Matched GPU loop logic to CPU reference implementation exactly
+
+- CPU/GPU equivalence: Verified- **Result**: Byte-perfect hash matching across all test vectors
+
+- Production: Ready- **Documentation**: See ARGON2_FIX_SUMMARY.md for detailed analysis
+
+
+
+**Last Updated:** November 2025---
+
 
 ## Documentation
 
